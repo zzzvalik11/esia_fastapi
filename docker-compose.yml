@@ -1,0 +1,88 @@
+# Docker Compose конфигурация для ЕСИА Gateway API
+version: '3.8'
+
+services:
+  # FastAPI приложение
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esia_gateway_app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=esia_user
+      - DB_PASSWORD=esia_password
+      - DB_NAME=ESIA_gateway
+      - ESIA_DEMO_URL=https://demo.gate.esia.pro
+      - DEBUG=True
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - esia_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MySQL база данных
+  mysql:
+    image: mysql:5.7
+    container_name: esia_gateway_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ESIA_gateway
+      MYSQL_USER: esia_user
+      MYSQL_PASSWORD: esia_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - esia_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+
+  # Adminer для управления базой данных (опционально)
+  adminer:
+    image: adminer:latest
+    container_name: esia_gateway_adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    depends_on:
+      - mysql
+    networks:
+      - esia_network
+    restart: unless-stopped
+    profiles:
+      - admin
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  esia_network:
+    driver: bridge
