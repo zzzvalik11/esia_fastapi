@@ -59,7 +59,8 @@ async def esia_gateway_exception_handler(request: Request, exc: ESIAGatewayExcep
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "error": exc.message,
+            "error": exc.__class__.__name__,
+            "message": exc.message,
             "details": exc.details,
             "status_code": exc.status_code
         }
@@ -80,12 +81,20 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """
     logger.error(f"HTTP ошибка: {exc.status_code} - {exc.detail}")
     
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
+    # Если detail уже является словарем, используем его как есть
+    if isinstance(exc.detail, dict):
+        content = exc.detail
+        content["status_code"] = exc.status_code
+    else:
+        content = {
+            "error": "HTTP Error",
+            "message": exc.detail,
             "status_code": exc.status_code
         }
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content
     )
 
 
@@ -104,10 +113,11 @@ async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Неожиданная ошибка: {str(exc)}", exc_info=True)
     
     return JSONResponse(
-        status_code=500,
+        status_code=400,
         content={
-            "error": "Внутренняя ошибка сервера",
-            "status_code": 500
+            "error": "Unexpected Error",
+            "message": "Произошла неожиданная ошибка при обработке запроса",
+            "status_code": 400
         }
     )
 

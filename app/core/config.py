@@ -6,28 +6,32 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
 
 
 class Settings(BaseSettings):
     """Настройки приложения с валидацией через Pydantic."""
     
     # Настройки базы данных
-    db_host: str = "localhost"
-    db_port: int = 3306
-    db_user: str = "root"
-    db_password: str = "password"
-    db_name: str = "ESIA_gateway"
+    db_host: str = os.getenv("DB_HOST", "localhost")
+    db_port: int = int(os.getenv("DB_PORT", "3306"))
+    db_user: str = os.getenv("DB_USER", "root")
+    db_password: str = os.getenv("DB_PASSWORD", "password")
+    db_name: str = os.getenv("DB_NAME", "ESIA_gateway")
     
     # Настройки ЕСИА
-    esia_demo_url: str = "https://demo.gate.esia.pro"
-    esia_client_id: str = ""
-    esia_client_secret: str = ""
-    esia_redirect_uri: str = ""
+    esia_demo_url: str = os.getenv("ESIA_DEMO_URL", "https://demo.gate.esia.pro")
+    esia_client_id: str = os.getenv("ESIA_CLIENT_ID", "")
+    esia_client_secret: str = os.getenv("ESIA_CLIENT_SECRET", "")
+    esia_redirect_uri: str = os.getenv("ESIA_REDIRECT_URI", "")
     
     # Настройки приложения
-    secret_key: str = "your-secret-key-here"
-    debug: bool = False
-    log_level: str = "INFO"
+    secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    debug: bool = os.getenv("DEBUG", "False").lower() == "true"
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
     
     # Настройки API
     api_v1_prefix: str = "/api/v1"

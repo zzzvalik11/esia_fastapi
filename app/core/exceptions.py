@@ -12,7 +12,7 @@ class ESIAGatewayException(Exception):
     def __init__(
         self,
         message: str,
-        status_code: int = 500,
+        status_code: int = 400,
         details: Optional[Dict[str, Any]] = None
     ):
         self.message = message
@@ -61,3 +61,17 @@ class ESIAServiceError(ExternalServiceError):
     
     def __init__(self, message: str = "Ошибка сервиса ЕСИА", details: Optional[Dict[str, Any]] = None):
         super().__init__(message, details)
+
+
+class DatabaseError(ESIAGatewayException):
+    """Ошибка базы данных."""
+    
+    def __init__(self, message: str = "Ошибка базы данных", details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, 503, details)
+
+
+class ConfigurationError(ESIAGatewayException):
+    """Ошибка конфигурации."""
+    
+    def __init__(self, message: str = "Ошибка конфигурации", details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, 500, details)

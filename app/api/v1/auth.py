@@ -3,11 +3,13 @@ API роуты для авторизации и аутентификации ч�
 """
 
 import logging
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Header, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.exceptions import ESIAGatewayException, AuthenticationError, ValidationError
 from app.schemas.auth import (
     AuthorizeRequest, TokenRequest, UserInfoRequest, LogoutRequest,
@@ -28,8 +30,8 @@ async def authorize(
     response_type: str = "code",
     provider: str = "esia_oauth",
     scope: str = "openid",
-    redirect_uri: str = "",
-    state: str = "",
+    redirect_uri: Optional[str] = None,
+    state: Optional[str] = None,
     nonce: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -43,9 +45,9 @@ async def authorize(
         response_type: Тип ответа (code)
         provider: Провайдер данных (esia_oauth, ebs_oauth, cpg_oauth)
         scope: Области доступа
-        redirect_uri: URI возврата
-        state: Состояние запроса (UUID)
-        nonce: Nonce для предотвращения подделки (UUID)
+        redirect_uri: URI возврата (если не указан, берется из настроек)
+        state: Состояние запроса (UUID, генерируется автоматически если не указан)
+        nonce: Nonce для предотвращения подделки (UUID, генерируется автоматически если не указан)
         db: Сессия базы данных
         
     Returns:
@@ -57,6 +59,21 @@ async def authorize(
     logger.info(f"Запрос авторизации от клиента: {client_id}")
     
     try:
+        # Генерация state и nonce если не переданы
+        if not state:
+            state = str(uuid.uuid4())
+        if not nonce:
+            nonce = str(uuid.uuid4())
+        
+        # Использование redirect_uri из настроек если не передан
+        if not redirect_uri:
+            redirect_uri = settings.esia_redirect_uri
+            if not redirect_uri:
+                raise ValidationError(
+                    "redirect_uri не указан и не настроен в конфигурации",
+                    details={"field": "redirect_uri"}
+                )
+        
         # Валидация и создание запроса авторизации
         auth_request = AuthorizeRequest(
             client_id=client_id,
@@ -94,10 +111,24 @@ async def authorize(
         
     except ValidationError as e:
         logger.error(f"Ошибка валидации запроса авторизации: {str(e)}")
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail={
+            "error": "Ошибка валидации данных",
+            "message": str(e),
+            "details": e.details
+        })
+    except ESIAGatewayException as e:
+        logger.error(f"Ошибка ЕСИА при создании запроса авторизации: {str(e)}")
+        raise HTTPException(status_code=e.status_code, detail={
+            "error": "Ошибка сервиса ЕСИА",
+            "message": str(e),
+            "details": e.details
+        })
     except Exception as e:
         logger.error(f"Неожиданная ошибка при создании запроса авторизации: {str(e)}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        raise HTTPException(status_code=400, detail={
+            "error": "Ошибка создания запроса авторизации",
+            "message": "Не удалось создать запрос авторизации. Проверьте корректность переданных параметров."
+        })
 
 
 @router.post("/token", response_model=TokenResponse, summary="Получение токена доступа")
@@ -151,13 +182,24 @@ async def get_token(
         
     except ESIAGatewayException as e:
         logger.error(f"Ошибка ЕСИА при получении токена: {str(e)}")
-        raise HTTPException(status_code=e.status_code, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail={
+            "error": "Ошибка получения токена",
+            "message": str(e),
+            "details": e.details
+        })
     except ValidationError as e:
         logger.error(f"Ошибка валидации запроса токена: {str(e)}")
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail={
+            "error": "Ошибка валидации данных",
+            "message": str(e),
+            "details": e.details
+        })
     except Exception as e:
         logger.error(f"Неожиданная ошибка при получении токена: {str(e)}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        raise HTTPException(status_code=400, detail={
+            "error": "Ошибка получения токена",
+            "message": "Не удалось получить токен доступа. Проверьте корректность переданных параметров."
+        })
 
 
 @router.post("/userinfo", response_model=ESIAUserInfo, summary="Получение данных пользователя")
@@ -185,7 +227,10 @@ async def get_user_info(
     try:
         # Извлечение токена из заголовка
         if not authorization.startswith("Bearer "):
-            raise AuthenticationError("Неверный формат токена авторизации")
+            raise AuthenticationError(
+                "Неверный формат токена авторизации. Ожидается 'Bearer <token>'",
+                details={"header": "Authorization"}
+            )
         
         access_token = authorization.replace("Bearer ", "")
         
@@ -210,19 +255,30 @@ async def get_user_info(
         
     except AuthenticationError as e:
         logger.error(f"Ошибка аутентификации: {str(e)}")
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail={
+            "error": "Ошибка аутентификации",
+            "message": str(e),
+            "details": e.details
+        })
     except ESIAGatewayException as e:
         logger.error(f"Ошибка ЕСИА при получении данных пользователя: {str(e)}")
-        raise HTTPException(status_code=e.status_code, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail={
+            "error": "Ошибка получения данных пользователя",
+            "message": str(e),
+            "details": e.details
+        })
     except Exception as e:
         logger.error(f"Неожиданная ошибка при получении данных пользователя: {str(e)}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        raise HTTPException(status_code=400, detail={
+            "error": "Ошибка получения данных пользователя",
+            "message": "Не удалось получить данные пользователя. Проверьте корректность токена доступа."
+        })
 
 
 @router.get("/logout", response_model=LogoutResponse, summary="Выход из системы ЕСИА")
 async def logout(
     client_id: str,
-    redirect_uri: str,
+    redirect_uri: Optional[str] = None,
     state: Optional[str] = None
 ):
     """
@@ -230,8 +286,8 @@ async def logout(
     
     Args:
         client_id: Идентификатор клиентской системы
-        redirect_uri: URI возврата после выхода
-        state: Состояние запроса (UUID)
+        redirect_uri: URI возврата после выхода (если не указан, берется из настроек)
+        state: Состояние запроса (UUID, генерируется автоматически если не указан)
         
     Returns:
         URL для выхода из системы
@@ -242,6 +298,19 @@ async def logout(
     logger.info(f"Запрос выхода от клиента: {client_id}")
     
     try:
+        # Генерация state если не передан
+        if not state:
+            state = str(uuid.uuid4())
+        
+        # Использование redirect_uri из настроек если не передан
+        if not redirect_uri:
+            redirect_uri = settings.esia_redirect_uri
+            if not redirect_uri:
+                raise ValidationError(
+                    "redirect_uri не указан и не настроен в конфигурации",
+                    details={"field": "redirect_uri"}
+                )
+        
         # Создание запроса выхода
         logout_request = LogoutRequest(
             client_id=client_id,
@@ -262,10 +331,17 @@ async def logout(
         
     except ValidationError as e:
         logger.error(f"Ошибка валидации запроса выхода: {str(e)}")
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail={
+            "error": "Ошибка валидации данных",
+            "message": str(e),
+            "details": e.details
+        })
     except Exception as e:
         logger.error(f"Неожиданная ошибка при создании запроса выхода: {str(e)}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        raise HTTPException(status_code=400, detail={
+            "error": "Ошибка создания запроса выхода",
+            "message": "Не удалось создать запрос выхода. Проверьте корректность переданных параметров."
+        })
 
 
 @router.get("/callback", summary="Обработка callback после авторизации")
@@ -298,7 +374,10 @@ async def auth_callback(
         auth_request = user_service.auth_repo.get_by_state(state)
         if not auth_request:
             logger.warning(f"Запрос авторизации с состоянием {state} не найден")
-            raise HTTPException(status_code=404, detail="Запрос авторизации не найден")
+            raise HTTPException(status_code=404, detail={
+                "error": "Запрос авторизации не найден",
+                "message": f"Запрос авторизации с состоянием {state} не найден в системе"
+            })
         
         if error:
             # Обработка ошибки авторизации
@@ -320,10 +399,16 @@ async def auth_callback(
         
         else:
             logger.error("Callback не содержит ни кода, ни ошибки")
-            raise HTTPException(status_code=400, detail="Неверный callback")
+            raise HTTPException(status_code=400, detail={
+                "error": "Неверный callback",
+                "message": "Callback должен содержать либо код авторизации, либо информацию об ошибке"
+            })
             
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Неожиданная ошибка при обработке callback: {str(e)}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        raise HTTPException(status_code=400, detail={
+            "error": "Ошибка обработки callback",
+            "message": "Не удалось обработать callback от ЕСИА"
+        })
