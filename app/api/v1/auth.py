@@ -26,7 +26,6 @@ logger = logging.getLogger("esia")
 
 @router.get("/authorize", response_model=AuthorizeResponse, summary="Инициация авторизации")
 async def authorize(
-    client_id: str,
     response_type: str = "code",
     provider: str = "esia_oauth",
     scope: str = "openid",
@@ -41,7 +40,6 @@ async def authorize(
     Создает запрос авторизации и возвращает URL для перенаправления пользователя.
     
     Args:
-        client_id: Идентификатор клиентской системы
         response_type: Тип ответа (code)
         provider: Провайдер данных (esia_oauth, ebs_oauth, cpg_oauth)
         scope: Области доступа
@@ -56,7 +54,16 @@ async def authorize(
     Raises:
         HTTPException: При ошибке валидации или создания запроса
     """
-    logger.info(f"Запрос авторизации от клиента: {client_id}")
+    logger.info(f"Запрос авторизации от клиента: {settings.esia_client_id}")
+    
+    # Используем client_id из настроек
+    client_id = settings.esia_client_id
+    if not client_id:
+        raise HTTPException(status_code=422, detail={
+            "error": "Не настроен client_id",
+            "message": "ESIA_CLIENT_ID не указан в конфигурации",
+            "details": {"field": "client_id"}
+        })
     
     try:
         # Генерация state и nonce если не переданы
@@ -133,9 +140,7 @@ async def authorize(
 
 @router.post("/token", response_model=TokenResponse, summary="Получение токена доступа")
 async def get_token(
-    grant_type: str = Form(...),
-    client_id: str = Form(...),
-    client_secret: str = Form(...),
+    grant_type: str = Form(..., description="Тип разрешения: authorization_code или refresh_token"),
     redirect_uri: str = Form(...),
     code: Optional[str] = Form(None),
     refresh_token: Optional[str] = Form(None),
@@ -146,8 +151,6 @@ async def get_token(
     
     Args:
         grant_type: Тип разрешения (authorization_code или refresh_token)
-        client_id: Идентификатор клиентской системы
-        client_secret: Секрет клиентской системы
         redirect_uri: URI возврата
         code: Авторизационный код (для authorization_code)
         refresh_token: Токен обновления (для refresh_token)
@@ -159,14 +162,37 @@ async def get_token(
     Raises:
         HTTPException: При ошибке получения токена
     """
-    logger.info(f"Запрос токена от клиента: {client_id}, тип: {grant_type}")
+    logger.info(f"Запрос токена от клиента: {settings.esia_client_id}, тип: {grant_type}")
+    
+    # Валидация grant_type
+    if grant_type not in ["authorization_code", "refresh_token"]:
+        raise HTTPException(status_code=422, detail={
+            "error": "Неверный тип разрешения",
+            "message": "grant_type должен быть 'authorization_code' или 'refresh_token'",
+            "details": {"grant_type": grant_type}
+        })
+    
+    # Валидация параметров в зависимости от типа разрешения
+    if grant_type == "authorization_code" and not code:
+        raise HTTPException(status_code=422, detail={
+            "error": "Отсутствует код авторизации",
+            "message": "Для grant_type='authorization_code' требуется параметр 'code'",
+            "details": {"grant_type": grant_type}
+        })
+    
+    if grant_type == "refresh_token" and not refresh_token:
+        raise HTTPException(status_code=422, detail={
+            "error": "Отсутствует токен обновления",
+            "message": "Для grant_type='refresh_token' требуется параметр 'refresh_token'",
+            "details": {"grant_type": grant_type}
+        })
     
     try:
         # Создание запроса токена
         token_request = TokenRequest(
             grant_type=grant_type,
-            client_id=client_id,
-            client_secret=client_secret,
+            client_id=settings.esia_client_id,
+            client_secret=settings.esia_client_secret,
             redirect_uri=redirect_uri,
             code=code,
             refresh_token=refresh_token
@@ -176,7 +202,7 @@ async def get_token(
         async with ESIAService() as esia_service:
             token_data = await esia_service.exchange_code_for_token(token_request)
         
-        logger.info(f"Токен успешно получен для клиента: {client_id}")
+        logger.info(f"Токен успешно получен для клиента: {settings.esia_client_id}")
         
         return TokenResponse(**token_data)
         
@@ -277,7 +303,6 @@ async def get_user_info(
 
 @router.get("/logout", response_model=LogoutResponse, summary="Выход из системы ЕСИА")
 async def logout(
-    client_id: str,
     redirect_uri: Optional[str] = None,
     state: Optional[str] = None
 ):
@@ -285,7 +310,6 @@ async def logout(
     Инициация выхода из системы ЕСИА.
     
     Args:
-        client_id: Идентификатор клиентской системы
         redirect_uri: URI возврата после выхода (если не указан, берется из настроек)
         state: Состояние запроса (UUID, генерируется автоматически если не указан)
         
@@ -295,6 +319,15 @@ async def logout(
     Raises:
         HTTPException: При ошибке создания запроса выхода
     """
+    # Используем client_id из настроек
+    client_id = settings.esia_client_id
+    if not client_id:
+        raise HTTPException(status_code=422, detail={
+            "error": "Не настроен client_id",
+            "message": "ESIA_CLIENT_ID не указан в конфигурации",
+            "details": {"field": "client_id"}
+        })
+    
     logger.info(f"Запрос выхода от клиента: {client_id}")
     
     try:

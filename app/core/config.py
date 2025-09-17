@@ -23,10 +23,17 @@ class Settings(BaseSettings):
     db_name: str = os.getenv("DB_NAME", "ESIA_gateway")
     
     # Настройки ЕСИА
+    esia_url: str = os.getenv("ESIA_URL", "http://esia.gosuslugi.ru")
     esia_demo_url: str = os.getenv("ESIA_DEMO_URL", "https://demo.gate.esia.pro")
+    esia_debug: bool = os.getenv("ESIA_DEBUG", "False").lower() == "true"
     esia_client_id: str = os.getenv("ESIA_CLIENT_ID", "")
     esia_client_secret: str = os.getenv("ESIA_CLIENT_SECRET", "")
     esia_redirect_uri: str = os.getenv("ESIA_REDIRECT_URI", "")
+    
+    @property
+    def esia_base_url(self) -> str:
+        """Возвращает базовый URL ЕСИА в зависимости от режима отладки."""
+        return self.esia_demo_url if self.esia_debug else self.esia_url
     
     # Настройки приложения
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")

@@ -22,7 +22,7 @@ class ESIAService:
     
     def __init__(self):
         """Инициализация сервиса ЕСИА."""
-        self.base_url = settings.esia_demo_url
+        self.base_url = settings.esia_base_url
         self.client_id = settings.esia_client_id
         self.client_secret = settings.esia_client_secret
         self.redirect_uri = settings.esia_redirect_uri

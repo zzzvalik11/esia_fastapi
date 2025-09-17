@@ -66,6 +66,7 @@ def setup_logging():
     
     # Логгер для ЕСИА операций
     esia_logger = logging.getLogger("esia")
+    esia_logger.handlers.clear()  # Очистка существующих обработчиков для предотвращения дублей
     esia_handler = logging.handlers.TimedRotatingFileHandler(
         filename=log_dir / "esia.log",
         when="midnight",
@@ -76,6 +77,7 @@ def setup_logging():
     esia_handler.setFormatter(formatter)
     esia_logger.addHandler(esia_handler)
     esia_logger.setLevel(logging.INFO)
+    esia_logger.propagate = False  # Предотвращение передачи логов в родительский логгер
     
     return root_logger
 
