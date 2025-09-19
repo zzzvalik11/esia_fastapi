@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-user-circle me-2"></i>
+                Профиль пользователя
+            </h2>
+            <div>
+                {% if has_active_token %}
+                <span class="status-badge status-active">
+                    <i class="fas fa-check-circle me-1"></i>Авторизован
+                </span>
+                {% else %}
+                <span class="status-badge status-inactive">
+                    <i class="fas fa-times-circle me-1"></i>Не авторизован
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="user-info-card">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <i class="fas fa-user-circle fa-5x text-primary"></i>
+                </div>
+                <div class="col-md-10">
+                    <h3 class="mb-2">
+                        {{ user.last_name }} {{ user.first_name }} 
+                        {% if user.middle_name %}{{ user.middle_name }}{% endif %}
+                    </h3>
+                    <div class="mb-2">
+                        <span class="status-badge {% if user.trusted %}status-active{% else %}status-inactive{% endif %}">
+                            {% if user.trusted %}
+                                <i class="fas fa-shield-check me-1"></i>Подтвержденная учетная запись
+                            {% else %}
+                                <i class="fas fa-shield-exclamation me-1"></i>Неподтвержденная учетная запись
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="text-muted">
+                        <i class="fas fa-id-card me-1"></i>
+                        ЕСИА ID: {{ user.esia_uid }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Личная информация
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Фамилия:</strong></td>
+                                <td>{{ user.last_name or 'Не указана' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Имя:</strong></td>
+                                <td>{{ user.first_name or 'Не указано' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Отчество:</strong></td>
+                                <td>{{ user.middle_name or 'Не указано' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Статус:</strong></td>
+                                <td>
+                                    <span class="badge bg-{% if user.status == 'REGISTERED' %}success{% else %}secondary{% endif %}">
+                                        {{ user.status or 'Не указан' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2"></i>
+                            Системная информация
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Верификация:</strong></td>
+                                <td>
+                                    {% if user.verifying %}
+                                        <span class="text-warning">
+                                            <i class="fas fa-spinner fa-spin me-1"></i>В процессе
+                                        </span>
+                                    {% else %}
+                                        <span class="text-success">
+                                            <i class="fas fa-check me-1"></i>Завершена
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Дата создания:</strong></td>
+                                <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Последнее обновление:</strong></td>
+                                <td>{{ user.updated_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>ID документа:</strong></td>
+                                <td>{{ user.r_id_doc or 'Не указан' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if has_active_token %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-key me-2"></i>
+                    Активная сессия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success fa-2x me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Токен доступа активен</h6>
+                                <small class="text-muted">
+                                    Время жизни: {{ token_expires_in }} секунд
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 85%"></div>
+                        </div>
+                        <small class="text-muted">Токен действителен</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mt-4">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h5>Нет активной сессии</h5>
+                <p class="text-muted mb-3">
+                    Для получения актуальных данных необходимо пройти авторизацию
+                </p>
+                <a href="/login" class="esia-btn">
+                    <div class="esia-logo">ГУ</div>
+                    Авторизоваться через Госуслуги
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="fas fa-home me-2"></i>
+                На главную
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

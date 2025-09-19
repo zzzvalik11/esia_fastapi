@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h4 class="alert-heading">{{ error }}</h4>
+                <p class="mb-0">{{ message }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-times-circle fa-4x text-danger mb-3"></i>
+                <h3>Произошла ошибка</h3>
+                <p class="text-muted mb-4">
+                    К сожалению, не удалось завершить авторизацию через Госуслуги
+                </p>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="/" class="btn btn-primary">
+                        <i class="fas fa-redo me-2"></i>
+                        Попробовать снова
+                    </a>
+                    <a href="/scopes" class="btn btn-outline-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Подробнее об авторизации
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Возможные причины ошибки
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-times text-danger me-2"></i>
+                        Отказ от авторизации на портале Госуслуги
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-clock text-warning me-2"></i>
+                        Истечение времени ожидания авторизации
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-network-wired text-info me-2"></i>
+                        Временные проблемы с подключением к ЕСИА
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-shield-alt text-secondary me-2"></i>
+                        Недостаточные права доступа к запрашиваемым данным
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

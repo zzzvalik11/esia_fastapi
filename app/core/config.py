@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     esia_client_secret: str = os.getenv("ESIA_CLIENT_SECRET", "")
     esia_redirect_uri: str = os.getenv("ESIA_REDIRECT_URI", "")
     
+    # Разрешенные scopes согласно методическим рекомендациям
+    allowed_scopes: list = [
+        "openid", "fullname", "birthdate", "gender", "citizenship", 
+        "id_doc", "email", "mobile", "addresses"
+    ]
+    
     @property
     def esia_base_url(self) -> str:
         """Возвращает базовый URL ЕСИА в зависимости от режима отладки."""

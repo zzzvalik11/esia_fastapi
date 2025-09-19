@@ -31,11 +31,10 @@ class GrantType(str, Enum):
 class AuthorizeRequest(BaseModel):
     """Схема запроса авторизации."""
     
-    client_id: str = Field(..., description="Идентификатор клиентской системы")
     response_type: ResponseType = Field(ResponseType.CODE, description="Тип ответа")
     provider: ProviderType = Field(..., description="Провайдер данных")
     scope: str = Field(..., description="Области доступа")
-    redirect_uri: HttpUrl = Field(..., description="URI возврата")
+    redirect_uri: Optional[HttpUrl] = Field(None, description="URI возврата")
     state: str = Field(..., description="Состояние запроса (UUID)")
     nonce: Optional[str] = Field(None, description="Nonce для предотвращения подделки (UUID)")
 
@@ -44,9 +43,7 @@ class TokenRequest(BaseModel):
     """Схема запроса токена доступа."""
     
     grant_type: GrantType = Field(..., description="Тип разрешения")
-    client_id: str = Field(..., description="Идентификатор клиентской системы")
-    client_secret: str = Field(..., description="Секрет клиентской системы")
-    redirect_uri: HttpUrl = Field(..., description="URI возврата")
+    redirect_uri: Optional[HttpUrl] = Field(None, description="URI возврата")
     code: Optional[str] = Field(None, description="Авторизационный код")
     refresh_token: Optional[str] = Field(None, description="Токен обновления")
 
@@ -60,8 +57,7 @@ class UserInfoRequest(BaseModel):
 class LogoutRequest(BaseModel):
     """Схема запроса выхода из системы."""
     
-    client_id: str = Field(..., description="Идентификатор клиентской системы")
-    redirect_uri: HttpUrl = Field(..., description="URI возврата")
+    redirect_uri: Optional[HttpUrl] = Field(None, description="URI возврата")
     state: Optional[str] = Field(None, description="Состояние запроса (UUID)")
 
 

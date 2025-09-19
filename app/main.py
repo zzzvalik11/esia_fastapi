@@ -12,7 +12,7 @@ from app.core.logging import setup_logging
 from app.core.exceptions import ESIAGatewayException
 from app.middleware.cors import add_cors_middleware
 from app.middleware.timing import RequestTimingMiddleware
-from app.api.v1.router import api_router
+from app.api.v1.router import api_router, web_router
 
 # Настройка логирования
 logger = setup_logging()
@@ -40,6 +40,7 @@ if not settings.debug:
 
 # Подключение роутеров
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+app.include_router(web_router)  # Веб-интерфейс без префикса
 
 
 @app.exception_handler(ESIAGatewayException)

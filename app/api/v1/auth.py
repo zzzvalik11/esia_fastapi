@@ -12,11 +12,11 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.exceptions import ESIAGatewayException, AuthenticationError, ValidationError
 from app.schemas.auth import (
-    AuthorizeRequest, TokenRequest, UserInfoRequest, LogoutRequest,
     AuthorizeResponse, TokenResponse, LogoutResponse
 )
 from app.schemas.user import ESIAUserInfo
 from app.services.esia import ESIAService
+from app.services.oauth import OAuth2Service
 from app.services.user import UserService
 from app.services.organization import OrganizationService
 
@@ -28,7 +28,7 @@ logger = logging.getLogger("esia")
 async def authorize(
     response_type: str = "code",
     provider: str = "esia_oauth",
-    scope: str = "openid",
+    scope: str = "openid fullname",
     redirect_uri: Optional[str] = None,
     state: Optional[str] = None,
     nonce: Optional[str] = None,
@@ -42,7 +42,7 @@ async def authorize(
     Args:
         response_type: Тип ответа (code)
         provider: Провайдер данных (esia_oauth, ebs_oauth, cpg_oauth)
-        scope: Области доступа
+        scope: Области доступа (разрешены: openid, fullname, birthdate, gender, citizenship, id_doc, email, mobile, addresses)
         redirect_uri: URI возврата (если не указан, берется из настроек)
         state: Состояние запроса (UUID, генерируется автоматически если не указан)
         nonce: Nonce для предотвращения подделки (UUID, генерируется автоматически если не указан)
@@ -54,66 +54,39 @@ async def authorize(
     Raises:
         HTTPException: При ошибке валидации или создания запроса
     """
-    logger.info(f"Запрос авторизации от клиента: {settings.esia_client_id}")
-    
-    # Используем client_id из настроек
-    client_id = settings.esia_client_id
-    if not client_id:
-        raise HTTPException(status_code=422, detail={
-            "error": "Не настроен client_id",
-            "message": "ESIA_CLIENT_ID не указан в конфигурации",
-            "details": {"field": "client_id"}
-        })
+    logger.info(f"OAuth 2.0 запрос авторизации с областями доступа: {scope}")
     
     try:
-        # Генерация state и nonce если не переданы
-        if not state:
-            state = str(uuid.uuid4())
-        if not nonce:
-            nonce = str(uuid.uuid4())
+        # Инициализация OAuth 2.0 сервиса
+        oauth_service = OAuth2Service()
         
-        # Использование redirect_uri из настроек если не передан
-        if not redirect_uri:
-            redirect_uri = settings.esia_redirect_uri
-            if not redirect_uri:
-                raise ValidationError(
-                    "redirect_uri не указан и не настроен в конфигурации",
-                    details={"field": "redirect_uri"}
-                )
-        
-        # Валидация и создание запроса авторизации
-        auth_request = AuthorizeRequest(
-            client_id=client_id,
-            response_type=response_type,
-            provider=provider,
-            scope=scope,
-            redirect_uri=redirect_uri,
+        # Построение URL авторизации
+        auth_data = oauth_service.build_authorization_url(
+            scopes=scope,
             state=state,
-            nonce=nonce
+            nonce=nonce,
+            redirect_uri=redirect_uri,
+            provider=provider
         )
         
         # Сохранение запроса в базе данных
         user_service = UserService(db)
         request_data = {
-            "client_id": client_id,
+            "client_id": settings.esia_client_id,
             "response_type": response_type,
             "provider": provider,
             "scope": scope,
-            "redirect_uri": redirect_uri,
-            "state": state,
-            "nonce": nonce
+            "redirect_uri": auth_data["redirect_uri"],
+            "state": auth_data["state"],
+            "nonce": auth_data["nonce"]
         }
         user_service.auth_repo.create(request_data)
         
-        # Построение URL авторизации
-        async with ESIAService() as esia_service:
-            authorization_url = esia_service.build_authorization_url(auth_request)
-        
-        logger.info(f"URL авторизации создан для состояния: {state}")
+        logger.info(f"OAuth 2.0 URL авторизации создан для состояния: {auth_data['state']}")
         
         return AuthorizeResponse(
-            authorization_url=authorization_url,
-            state=state
+            authorization_url=auth_data["authorization_url"],
+            state=auth_data["state"]
         )
         
     except ValidationError as e:
@@ -147,7 +120,7 @@ async def get_token(
     db: Session = Depends(get_db)
 ):
     """
-    Обмен авторизационного кода на токен доступа или обновление токена.
+    OAuth 2.0 обмен авторизационного кода на токен доступа или обновление токена.
     
     Args:
         grant_type: Тип разрешения (authorization_code или refresh_token)
@@ -162,7 +135,7 @@ async def get_token(
     Raises:
         HTTPException: При ошибке получения токена
     """
-    logger.info(f"Запрос токена от клиента: {settings.esia_client_id}, тип: {grant_type}")
+    logger.info(f"OAuth 2.0 запрос токена, тип разрешения: {grant_type}")
     
     # Валидация grant_type
     if grant_type not in ["authorization_code", "refresh_token"]:
@@ -188,21 +161,24 @@ async def get_token(
         })
     
     try:
-        # Создание запроса токена
-        token_request = TokenRequest(
+        # Создание запроса токена с параметрами из настроек
+        token_request_data = {
             grant_type=grant_type,
-            client_id=settings.esia_client_id,
-            client_secret=settings.esia_client_secret,
+            "client_id": settings.esia_client_id,
+            "client_secret": settings.esia_client_secret,
             redirect_uri=redirect_uri,
-            code=code,
-            refresh_token=refresh_token
-        )
+        }
+        
+        if code:
+            token_request_data["code"] = code
+        if refresh_token:
+            token_request_data["refresh_token"] = refresh_token
         
         # Получение токена от ЕСИА
         async with ESIAService() as esia_service:
-            token_data = await esia_service.exchange_code_for_token(token_request)
+            token_data = await esia_service.exchange_code_for_token(token_request_data)
         
-        logger.info(f"Токен успешно получен для клиента: {settings.esia_client_id}")
+        logger.info(f"OAuth 2.0 токен успешно получен")
         
         return TokenResponse(**token_data)
         
@@ -307,7 +283,7 @@ async def logout(
     state: Optional[str] = None
 ):
     """
-    Инициация выхода из системы ЕСИА.
+    OAuth 2.0 инициация выхода из системы ЕСИА.
     
     Args:
         redirect_uri: URI возврата после выхода (если не указан, берется из настроек)
@@ -319,47 +295,20 @@ async def logout(
     Raises:
         HTTPException: При ошибке создания запроса выхода
     """
-    # Используем client_id из настроек
-    client_id = settings.esia_client_id
-    if not client_id:
-        raise HTTPException(status_code=422, detail={
-            "error": "Не настроен client_id",
-            "message": "ESIA_CLIENT_ID не указан в конфигурации",
-            "details": {"field": "client_id"}
-        })
-    
-    logger.info(f"Запрос выхода от клиента: {client_id}")
+    logger.info("OAuth 2.0 запрос выхода из системы")
     
     try:
-        # Генерация state если не передан
-        if not state:
-            state = str(uuid.uuid4())
-        
-        # Использование redirect_uri из настроек если не передан
-        if not redirect_uri:
-            redirect_uri = settings.esia_redirect_uri
-            if not redirect_uri:
-                raise ValidationError(
-                    "redirect_uri не указан и не настроен в конфигурации",
-                    details={"field": "redirect_uri"}
-                )
-        
-        # Создание запроса выхода
-        logout_request = LogoutRequest(
-            client_id=client_id,
-            redirect_uri=redirect_uri,
-            state=state
-        )
+        # Инициализация OAuth 2.0 сервиса
+        oauth_service = OAuth2Service()
         
         # Построение URL выхода
-        async with ESIAService() as esia_service:
-            logout_url = esia_service.build_logout_url(logout_request)
+        logout_url = oauth_service.build_logout_url(redirect_uri, state)
         
-        logger.info(f"URL выхода создан для клиента: {client_id}")
+        logger.info("OAuth 2.0 URL выхода создан")
         
         return LogoutResponse(
             logout_url=logout_url,
-            redirect_uri=redirect_uri
+            redirect_uri=redirect_uri or settings.esia_redirect_uri
         )
         
     except ValidationError as e:

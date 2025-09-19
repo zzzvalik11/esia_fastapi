@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="text-center mb-5">
+            <i class="fas fa-list-check fa-4x text-primary mb-3"></i>
+            <h1>Области доступа ЕСИА</h1>
+            <p class="lead text-muted">
+                Информация о доступных областях данных при авторизации через Госуслуги
+            </p>
+        </div>
+
+        <div class="alert alert-info" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Важно:</strong> Система запрашивает только те данные, которые необходимы для работы. 
+            Все данные передаются в зашифрованном виде и обрабатываются согласно требованиям безопасности.
+        </div>
+
+        <div class="row">
+            {% for scope, description in scopes.items() %}
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100 scope-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                {% if scope == 'openid' %}
+                                    <i class="fas fa-id-badge fa-2x text-primary"></i>
+                                {% elif scope == 'fullname' %}
+                                    <i class="fas fa-user fa-2x text-success"></i>
+                                {% elif scope == 'birthdate' %}
+                                    <i class="fas fa-birthday-cake fa-2x text-warning"></i>
+                                {% elif scope == 'gender' %}
+                                    <i class="fas fa-venus-mars fa-2x text-info"></i>
+                                {% elif scope == 'citizenship' %}
+                                    <i class="fas fa-flag fa-2x text-danger"></i>
+                                {% elif scope == 'id_doc' %}
+                                    <i class="fas fa-id-card fa-2x text-secondary"></i>
+                                {% elif scope == 'email' %}
+                                    <i class="fas fa-envelope fa-2x text-primary"></i>
+                                {% elif scope == 'mobile' %}
+                                    <i class="fas fa-mobile-alt fa-2x text-success"></i>
+                                {% elif scope == 'addresses' %}
+                                    <i class="fas fa-map-marker-alt fa-2x text-warning"></i>
+                                {% else %}
+                                    <i class="fas fa-circle fa-2x text-muted"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title">{{ scope }}</h5>
+                                <p class="card-text text-muted">{{ description }}</p>
+                                <div class="mt-2">
+                                    {% if scope in allowed_scopes %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Разрешено
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>Недоступно
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="card mt-5">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Безопасность и конфиденциальность
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-lock fa-3x text-success mb-2"></i>
+                        <h6>Шифрование данных</h6>
+                        <p class="text-muted small">
+                            Все данные передаются по защищенному протоколу HTTPS
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-user-shield fa-3x text-primary mb-2"></i>
+                        <h6>OAuth 2.0</h6>
+                        <p class="text-muted small">
+                            Используется стандартный протокол авторизации OAuth 2.0
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-certificate fa-3x text-warning mb-2"></i>
+                        <h6>Государственная система</h6>
+                        <p class="text-muted small">
+                            Данные получаются из официальной системы ЕСИА
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Часто задаваемые вопросы
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                Какие данные запрашивает система?
+                            </button>
+                        </h2>
+                        <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Система запрашивает только те данные, которые указаны в списке разрешенных областей доступа. 
+                                Вы можете видеть полный список выше с пометкой "Разрешено".
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                Безопасно ли передавать данные?
+                            </button>
+                        </h2>
+                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Да, абсолютно безопасно. Используется протокол OAuth 2.0 и шифрование HTTPS. 
+                                Данные передаются напрямую из государственной системы ЕСИА.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                Можно ли отозвать доступ к данным?
+                            </button>
+                        </h2>
+                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Да, вы можете в любой момент отозвать доступ к своим данным через личный кабинет на портале Госуслуги 
+                                в разделе "Настройки безопасности".
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="/" class="btn btn-primary btn-lg">
+                <i class="fas fa-arrow-left me-2"></i>
+                Вернуться к авторизации
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
