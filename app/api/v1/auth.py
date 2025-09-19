@@ -163,10 +163,10 @@ async def get_token(
     try:
         # Создание запроса токена с параметрами из настроек
         token_request_data = {
-            grant_type=grant_type,
+            "grant_type": grant_type,
             "client_id": settings.esia_client_id,
             "client_secret": settings.esia_client_secret,
-            redirect_uri=redirect_uri,
+            "redirect_uri": redirect_uri,
         }
         
         if code:

@@ -14,9 +14,12 @@ from app.core.config import settings
 from app.services.oauth import OAuth2Service
 from app.services.user import UserService
 from app.services.esia import ESIAService
+import os
 
 router = APIRouter(tags=["Веб-интерфейс"])
 templates = Jinja2Templates(directory="templates")
+#templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+
 logger = logging.getLogger(__name__)
 
 
